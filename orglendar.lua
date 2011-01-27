@@ -108,7 +108,7 @@ local function add_calendar(inc_offset)
 
    local todotext, datearr, leng = create_string(query)
    for ii = 1, table.getn(datearr) do
-      if cur_year == datearr[ii][1] and cur_month + offset == tonumber(datearr[ii][2]) then
+      if cur_year == datearr[ii][1] and cur_month == tonumber(datearr[ii][2]) then
 	 cal = string.gsub(cal, "(" .. datearr[ii][3] ..")", '<span weight="bold" foreground = "#AA0000">%1</span>', 1)
       end
    end
