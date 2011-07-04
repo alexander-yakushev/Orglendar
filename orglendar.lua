@@ -26,7 +26,7 @@ local function parse_agenda(today)
                if task_start and find_begin == 1 then
                   task_name = string.sub(task_name, task_start + 1)
                end
-               local task_end, _, task_tags = string.find(task_name,"%s+(:.+:)")
+               local task_end, _, task_tags = string.find(task_name,"%s+(:.+):")
                if task_tags then
                   task_name = string.sub(task_name, 1, task_end - 1)
                else
@@ -53,19 +53,21 @@ local function parse_agenda(today)
    return result, maxlen, dates
 end
 
-local function create_string(today)
+function create_string(today,date_cl,font)
+   date_cl = date_cl or "#AA0000"
+   font = font or "monospace"
    local todos, ml, dates = parse_agenda(today)
    local result = ""
    local prev_date
    for _, task in ipairs(todos) do
       if prev_date ~= task.date then
-         result = result .. '<span weight = "bold" foreground = "#AA0000">' .. 
-            pop_spaces("",task.date,ml+2) .. '</span>' .. "\n"
+         result = result .. '<span weight = "bold" foreground = "'..date_cl..'">' .. 
+            pop_spaces("",task.date,ml+3) .. '</span>' .. "\n"
       end
       result = result .. pop_spaces(task.name,task.tags,ml+3) .. "\n"
       prev_date = task.date
    end
-   return '<span font="monospace">' .. string.sub(result,1,string.len(result)-1) .. '</span>', dates, ml+3
+   return '<span font="'..font..'">' .. string.sub(result,1,string.len(result)-1) .. '</span>', dates, ml+3
 end
 
 function pop_spaces(s1,s2,maxsize)
@@ -88,10 +90,11 @@ local function remove_calendar()
    end
 end
 
-local function add_calendar(inc_offset)
-   local save_offset = offset
-   remove_calendar()
-   offset = save_offset + inc_offset
+function generate_calendar(offset,today_cl,event_cl,font)
+   today_cl = today_cl or "#00FF00"
+   event_cl = event_cl or "#AA0000"
+   font = font or "monospace"
+
    local query = os.date("%Y-%m-%d")
    local _, _, cur_year, cur_month, cur_day = string.find(query,"(%d%d%d%d)%-(%d%d)%-(%d%d)")
    cur_month = tonumber(cur_month) + offset
@@ -106,10 +109,11 @@ local function add_calendar(inc_offset)
    cal = string.gsub(cal, "^%s*(.-)%s*$", "%1")
    local _, _, head, cal = string.find(cal,"(.+%d%d%d%d)\n(.+)")
 
-   local todotext, datearr, leng = create_string(query)
+   local todotext, datearr, leng = create_string(query,event_cl,font)
    for ii = 1, table.getn(datearr) do
       if cur_year == datearr[ii][1] and cur_month == tonumber(datearr[ii][2]) then
-	 cal = string.gsub(cal, "(" .. datearr[ii][3] ..")", '<span weight="bold" foreground = "#AA0000">%1</span>', 1)
+	 cal = string.gsub(cal, "(" .. datearr[ii][3] .."[^f])", 
+                           '<span weight="bold" foreground = "'..event_cl..'">%1</span>', 1)
       end
    end
 
@@ -117,19 +121,29 @@ local function add_calendar(inc_offset)
       cur_day = string.sub(cur_day,2)
    end 
    if offset == 0 then
-      cal = string.gsub(cal, "(" .. cur_day ..")", '<span weight="bold" foreground = "#00FF00">%1</span>', 1)
+      cal = string.gsub(cal, "(" .. cur_day .."[%s/])", 
+                        '<span weight="bold" foreground = "'..today_cl..'">%1</span>', 1)
    end
 
    cal = head .. "\n" .. cal
+   cal = string.format('<span font = "%s">%s</span>', font, cal)
+   return { calendar = cal, todo = todotext, length = leng }
+end
+
+local function add_calendar(inc_offset)
+   local save_offset = offset
+   remove_calendar()
+   offset = save_offset + inc_offset
+   local data = generate_calendar(offset)
    calendar = naughty.notify({ title = os.date("%a, %d %B %Y"),
-				text = string.format('<span font_desc="%s">%s</span>', "monospace", cal),
+				text = data.calendar,
 				timeout = 0, hover_timeout = 0.5,
 				width = 160,
 			     })
    todo = naughty.notify({ title = "TO-DO list",
-			   text = todotext,
+			   text = data.todo,
 			   timeout = 0, hover_timeout = 0.5,
-			   width = leng * 7,
+			   width = data.length * 7,
 			})
 end
 
