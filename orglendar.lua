@@ -4,6 +4,7 @@
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 
 orglendar = {}
+orglendar.char_width = 7.3
 
 local function parse_agenda(today)
    local result = {}
@@ -105,14 +106,14 @@ function generate_calendar(offset,today_cl,event_cl,font)
       cur_month = (cur_month + 12) .. "p"
       cur_year = cur_year - 1
    end
-   local cal = awful.util.pread("cal -m " .. cur_month)
+   local cal = awful.util.pread("ncal -Chm " .. cur_month)
    cal = string.gsub(cal, "^%s*(.-)%s*$", "%1")
-   local _, _, head, cal = string.find(cal,"(.+%d%d%d%d)\n(.+)")
-
+   
+   local _, _, head, cal = string.find(cal,"(.+%d%d%d%d)%s*\n(.+)")
    local todotext, datearr, leng = create_string(query,event_cl,font)
    for ii = 1, table.getn(datearr) do
       if cur_year == datearr[ii][1] and cur_month == tonumber(datearr[ii][2]) then
-	 cal = string.gsub(cal, "(" .. datearr[ii][3] .."[^f])", 
+         cal = string.gsub(cal, "(" .. datearr[ii][3] .."[^f])", 
                            '<span weight="bold" foreground = "'..event_cl..'">%1</span>', 1)
       end
    end
@@ -120,10 +121,10 @@ function generate_calendar(offset,today_cl,event_cl,font)
    if string.sub(cur_day,1,1) == "0" then
       cur_day = string.sub(cur_day,2)
    end 
-   if offset == 0 then
-      cal = string.gsub(cal, "(" .. cur_day .."[%s/])", 
-                        '<span weight="bold" foreground = "'..today_cl..'">%1</span>', 1)
-   end
+  if offset == 0 then
+     cal = string.gsub(cal, "(" .. cur_day .."[%s/])", 
+                       '<span weight="bold" foreground = "'..today_cl..'">%1</span>', 1)
+  end
 
    cal = head .. "\n" .. cal
    cal = string.format('<span font = "%s">%s</span>', font, cal)
@@ -143,7 +144,7 @@ local function add_calendar(inc_offset)
    todo = naughty.notify({ title = "TO-DO list",
 			   text = data.todo,
 			   timeout = 0, hover_timeout = 0.5,
-			   width = data.length * 7,
+			   width = data.length * orglendar.char_width,
 			})
 end
 
