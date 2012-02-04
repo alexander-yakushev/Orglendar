@@ -1,6 +1,7 @@
 -- Calendar with Emacs org-mode agenda for Awesome WM
 -- Inspired by and contributed from the org-awesome module, copyright of Damien Leone
 -- Licensed under GPLv2
+-- Version 0.5.0
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 
 orglendar = {}
