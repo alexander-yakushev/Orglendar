@@ -4,15 +4,37 @@
 -- Version 0.5.0
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 
-orglendar = {}
-orglendar.char_width = 7.3
+local pairs = pairs
+local ipairs = ipairs
+local io = io
+local os = os
+local tonumber = tonumber
+local string = string
+local table = table
+local theme = theme or {}
+local util = require("awful.util")
 
-local function parse_agenda(today)
+--local naughty = require("naughty")
+
+module("orglendar")
+
+files = {}
+char_width = 7.3
+text_color = theme.fg_normal or "#FFFFFF"
+today_color = theme.fg_focus or "#00FF00"
+event_color = theme.fg_urgent or "#FF0000"
+font = theme.font or 'sans 8'
+
+local calendar = nil
+local todo = nil
+local offset = 0
+
+function parse_agenda(today)
    local result = {}
    local dates = {}
    local maxlen = 20
    local task_name
-   for _, file in pairs(orglendar.files) do
+   for _, file in pairs(files) do
       local fd = io.open(file, "r")
       for line in fd:lines() do
          local scheduled = string.find(line, "SCHEDULED:")
@@ -55,21 +77,19 @@ local function parse_agenda(today)
    return result, maxlen, dates
 end
 
-function create_string(today,date_cl,font)
-   date_cl = date_cl or "#AA0000"
-   font = font or "monospace"
+function create_string(today)
    local todos, ml, dates = parse_agenda(today)
    local result = ""
    local prev_date
    for _, task in ipairs(todos) do
       if prev_date ~= task.date then
-         result = result .. '<span weight = "bold" foreground = "'..date_cl..'">' .. 
-            pop_spaces("",task.date,ml+3) .. '</span>' .. "\n"
+         result = result .. '<span weight = "bold" foreground = "' .. event_color .. '">' .. 
+            pop_spaces("", task.date, ml+3) .. '</span>' .. "\n"
       end
-      result = result .. pop_spaces(task.name,task.tags,ml+3) .. "\n"
+      result = result .. pop_spaces(task.name, task.tags, ml+3) .. "\n"
       prev_date = task.date
    end
-   return '<span font="'..font..'">' .. string.sub(result,1,string.len(result)-1) .. '</span>', dates, ml+3
+   return '<span font="' .. font .. '">' .. string.sub(result,1,string.len(result)-1) .. '</span>', dates, ml+3
 end
 
 function pop_spaces(s1,s2,maxsize)
@@ -80,9 +100,6 @@ function pop_spaces(s1,s2,maxsize)
    return s1 .. sps .. s2
 end
 
-local calendar = nil
-local offset = 0
-
 local function remove_calendar()
    if calendar ~= nil then
       naughty.destroy(calendar)
@@ -92,11 +109,7 @@ local function remove_calendar()
    end
 end
 
-function generate_calendar(offset,today_cl,event_cl,font)
-   today_cl = today_cl or "#00FF00"
-   event_cl = event_cl or "#AA0000"
-   font = font or "monospace"
-
+function generate_calendar(offset)
    local query = os.date("%Y-%m-%d")
    local _, _, cur_year, cur_month, cur_day = string.find(query,"(%d%d%d%d)%-(%d%d)%-(%d%d)")
    cur_month = tonumber(cur_month) + offset
@@ -107,26 +120,26 @@ function generate_calendar(offset,today_cl,event_cl,font)
       cur_month = (cur_month + 12) .. "p"
       cur_year = cur_year - 1
    end
-   local cal = awful.util.pread("ncal -Chm " .. cur_month)
+   local cal = util.pread("ncal -MChm " .. cur_month)
    cal = string.gsub(cal, "^%s*(.-)%s*$", "%1")
    
    local _, _, head, cal = string.find(cal,"(.+%d%d%d%d)%s*\n(.+)")
-   local todotext, datearr, leng = create_string(query,event_cl,font)
+   local todotext, datearr, leng = create_string(query,event_color,font)
    for ii = 1, table.getn(datearr) do
       if cur_year == datearr[ii][1] and cur_month == tonumber(datearr[ii][2]) then
-         cal = string.gsub(cal, "(" .. datearr[ii][3] .."[^f])", 
-                           '<span weight="bold" foreground = "'..event_cl..'">%1</span>', 1)
+         cal = string.gsub(cal, "(" .. datearr[ii][3] .. ")", 
+                           '<span weight="bold" foreground = "'.. event_color ..'">%1</span>', 1)
       end
    end
-
+   
    if string.sub(cur_day,1,1) == "0" then
       cur_day = string.sub(cur_day,2)
    end 
-  if offset == 0 then
-     cal = string.gsub(cal, "(" .. cur_day .."[%s/])", 
-                       '<span weight="bold" foreground = "'..today_cl..'">%1</span>', 1)
-  end
-
+   if offset == 0 then
+      cal = string.gsub(cal, "(" .. cur_day .."[%s/%lt;])", 
+                        '<span weight="bold" foreground = "'.. today_color ..'">%1</span>', 1)
+   end
+   
    cal = head .. "\n" .. cal
    cal = string.format('<span font = "%s">%s</span>', font, cal)
    return { calendar = cal, todo = todotext, length = leng }
@@ -138,27 +151,27 @@ local function add_calendar(inc_offset)
    offset = save_offset + inc_offset
    local data = generate_calendar(offset)
    calendar = naughty.notify({ title = os.date("%a, %d %B %Y"),
-				text = data.calendar,
-				timeout = 0, hover_timeout = 0.5,
-				width = 160,
-			     })
+                               text = data.calendar,
+                               timeout = 0, hover_timeout = 0.5,
+                               width = 160,
+                            })
    todo = naughty.notify({ title = "TO-DO list",
 			   text = data.todo,
 			   timeout = 0, hover_timeout = 0.5,
-			   width = data.length * orglendar.char_width,
+			   width = data.length * char_width,
 			})
 end
 
-function orglendar.register(widget)
-   widget:add_signal("mouse::enter", function()
-                                            add_calendar(0)
-                                         end)
-   widget:add_signal("mouse::leave", remove_calendar)
+function register(widget)
+   widget:connect_signal("mouse::enter", function()
+                                        add_calendar(0)
+                                     end)
+   widget:connect_signal("mouse::leave", remove_calendar)
    
-   widget:buttons(awful.util.table.join( awful.button({ }, 4, function()
-                                                                     add_calendar(-1)
-                                                                  end),
-                                             awful.button({ }, 5, function()
-                                                                     add_calendar(1)
-                                                                  end)))
+   widget:buttons(util.table.join( awful.button({ }, 4, function()
+                                                           add_calendar(-1)
+                                                        end),
+                                   awful.button({ }, 5, function()
+                                                           add_calendar(1)
+                                                        end)))
 end
