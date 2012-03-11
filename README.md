@@ -6,4 +6,4 @@ See more information and installation guide here: http://awesome.naquadah.org/wi
 
 ## Version ##
 
-The latest version (0.6.0) is intender for the git/master version of Awesome. If you use Awesome v.3.4.X please use this version: https://github.com/alexander-yakushev/Orglendar/zipball/orglendar-0.5.0
+The latest version (0.6.0) is intended for the git/master version of Awesome. If you use Awesome v.3.4.X please use this version: https://github.com/alexander-yakushev/Orglendar/zipball/orglendar-0.5.0
