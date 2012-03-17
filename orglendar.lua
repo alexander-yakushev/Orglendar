@@ -1,7 +1,7 @@
 -- Calendar with Emacs org-mode agenda for Awesome WM
 -- Inspired by and contributed from the org-awesome module, copyright of Damien Leone
 -- Licensed under GPLv2
--- Version 1.0-awesome-git
+-- Version 1.0-awesome-3.4.x
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 
 local pairs = pairs
@@ -228,8 +228,8 @@ function show(inc_offset)
 end
 
 function register(widget)
-   widget:connect_signal("mouse::enter", function() show(0) end)
-   widget:connect_signal("mouse::leave", hide)
+   widget:add_signal("mouse::enter", function() show(0) end)
+   widget:add_signal("mouse::leave", hide)
    widget:buttons(util.table.join( awful.button({ }, 3, function()
                                                            parse_agenda()
                                                         end),
