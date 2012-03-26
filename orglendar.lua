@@ -189,10 +189,6 @@ function get_calendar_and_todo_text(_offset)
                         font, text_color, header, cal), create_todo()
 end
 
-local function calculate_char_width()
-   return theme.get_font_height(font) * 0.555
-end
-
 function hide()
    if calendar ~= nil then
       naughty.destroy(calendar)
@@ -213,7 +209,7 @@ function show(inc_offset)
    hide()
    offset = save_offset + inc_offset
 
-   local char_width = char_width or calculate_char_width()
+   local char_width = char_width or 8.3
    local header, cal_text = create_calendar()
    calendar = naughty.notify({ title = header,
                                text = cal_text,
