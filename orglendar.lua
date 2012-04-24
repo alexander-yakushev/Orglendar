@@ -150,7 +150,10 @@ end
 
 local function create_todo()
    local result = ""
-   local maxlen = limit_todo_length or data.maxlen + 3
+   local maxlen = data.maxlen + 3
+   if limit_todo_length and limit_todo_length < maxlen then
+      maxlen = limit_todo_length
+   end
    local prev_date, limit, tname
    for i, task in ipairs(data.tasks) do
       if prev_date ~= task.date then
