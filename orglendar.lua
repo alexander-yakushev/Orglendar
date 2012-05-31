@@ -105,10 +105,8 @@ local function create_calendar()
       cal_year = cal_year - 1
    end
 
-   local cal_output = util.pread("echo $(cal -m " .. cal_month ..
-                                 " " .. cal_year .. ")")
-   local _, _, last_day = string.find(cal_output, ".*(%d%d)")
-   last_day = tonumber(last_day)
+   local last_day = os.date("%d", os.time({ day = 1, year = cal_year,
+                                            month = cal_month + 1}) - 86400)
    local first_day = os.time({ day = 1, month = cal_month, year = cal_year})
    local first_day_in_week =
       os.date("%w", first_day)
