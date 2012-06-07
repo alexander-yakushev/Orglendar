@@ -11,6 +11,7 @@ local os = os
 local tonumber = tonumber
 local string = string
 local table = table
+local math = math
 local awful = require("awful")
 local util = awful.util
 local theme = require("beautiful")
@@ -29,6 +30,27 @@ font = theme.font or 'monospace 8'
 parse_on_show = true
 calendar_width = 21
 limit_todo_length = nil
+
+local freq_table =
+{ d = { lapse = 86400,
+        occur = 5,
+        next = function(t, i)
+                  local date = os.date("*t", t)
+                  return os.time{ day = date.day + i, month = date.month,
+                                  year = date.year }
+               end },
+  w = { lapse = 604800,
+        occur = 3,
+        next = function(t, i)
+                  return t + 604800 * i
+               end },
+  y = { lapse = 220752000,
+        occur = 1,
+        next = function(t, i)
+                  local date = os.date("*t", t)
+                  return os.time{ day = date.day, month = date.month,
+                                  year = date.year + i }
+               end } }
 
 local calendar = nil
 local todo = nil
@@ -60,10 +82,12 @@ function parse_agenda()
             local deadline  = string.find(line, "DEADLINE:")
 
             if (scheduled and not closed) or (deadline and not closed) then
-               local _, _, y, m, d  = string.find(line, "(%d%d%d%d)%-(%d%d)%-(%d%d)")
+               local _, _, y, m, d, recur = string.find(line, "(%d%d%d%d)%-(%d%d)%-(%d%d)[^%+]*%+?([^>]*)>")
+               print(y,m,d,recur)
+
                local task_date = y .. "-"  .. m .. "-" .. d
 
-               if d and task_name and (task_date >= today) then
+               if d and task_name and (task_date >= today or recur ~= "") then
                   local find_begin, task_start = string.find(task_name, "[A-Z]+%s+")
                   if task_start and find_begin == 1 then
                      task_name = string.sub(task_name, task_start + 1)
@@ -79,10 +103,40 @@ function parse_agenda()
                   if (len > data.maxlen) and (task_date >= today) then
                      data.maxlen = len
                   end
-                  table.insert(data.tasks, { name = task_name,
-                                             tags = task_tags,
-                                             date = task_date})
-                  data.dates[y .. tonumber(m) .. tonumber(d)] = true
+
+                  if recur ~= "" then
+                     local _, _, interval, freq = string.find(recur, "(%d)(%w)")
+                     local now = os.time()
+                     local curr
+                     local event_time = os.time({day = tonumber(d), month = tonumber(m), year = y})
+                     if freq == "d" then
+                        curr = math.max(now, event_time)
+                     elseif freq == "w" then
+                        local count = math.floor((now - event_time) / (freq_table.w.lapse * interval))
+                        if count < 0 then count = 0 end
+                        curr = event_time + count * (freq_table.w.lapse * interval)
+                     else
+                        curr = event_time
+                     end
+                     while curr < now do
+                        curr = freq_table[freq].next(curr, interval)
+                     end
+                     for i = 1, freq_table[freq].occur do
+                        local curr_date = os.date("*t", curr)
+                        table.insert(data.tasks, { name = task_name,
+                                                   tags = task_tags,
+                                                   date = curr_date.year .. "-" .. curr_date.month .. "-" .. curr_date.day,
+                                                   recur = recur})
+                        data.dates[curr_date.year .. curr_date.month .. curr_date.day] = true
+                        curr = freq_table[freq].next(curr, interval)
+                     end
+                  else
+                     table.insert(data.tasks, { name = task_name,
+                                                tags = task_tags,
+                                                date = task_date,
+                                                recur = recur})
+                     data.dates[y .. tonumber(m) .. tonumber(d)] = true
+                  end
                end
             end
             _, _, task_name = string.find(line, "%*+%s+(.+)")
