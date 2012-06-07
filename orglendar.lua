@@ -1,7 +1,7 @@
 -- Calendar with Emacs org-mode agenda for Awesome WM
 -- Inspired by and contributed from the org-awesome module, copyright of Damien Leone
 -- Licensed under GPLv2
--- Version 1.0-awesome-git
+-- Version 1.1-awesome-git
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 
 local pairs = pairs
@@ -30,6 +30,7 @@ font = theme.font or 'monospace 8'
 parse_on_show = true
 calendar_width = 21
 limit_todo_length = nil
+date_format = "%d-%m-%Y"
 
 local freq_table =
 { d = { lapse = 86400,
@@ -67,7 +68,7 @@ local function pop_spaces(s1, s2, maxsize)
 end
 
 function parse_agenda()
-   local today = os.date("%Y-%m-%d")
+   local today = os.time()
    data = { tasks = {}, dates = {}, maxlen = 20 }
 
    local task_name
@@ -83,9 +84,9 @@ function parse_agenda()
 
             if (scheduled and not closed) or (deadline and not closed) then
                local _, _, y, m, d, recur = string.find(line, "(%d%d%d%d)%-(%d%d)%-(%d%d)[^%+]*%+?([^>]*)>")
-               print(y,m,d,recur)
 
-               local task_date = y .. "-"  .. m .. "-" .. d
+               local task_date = os.time{day = tonumber(d), month = tonumber(m),
+                                         year = tonumber(y)}
 
                if d and task_name and (task_date >= today or recur ~= "") then
                   local find_begin, task_start = string.find(task_name, "[A-Z]+%s+")
@@ -125,9 +126,9 @@ function parse_agenda()
                         local curr_date = os.date("*t", curr)
                         table.insert(data.tasks, { name = task_name,
                                                    tags = task_tags,
-                                                   date = curr_date.year .. "-" .. curr_date.month .. "-" .. curr_date.day,
+                                                   date = curr,
                                                    recur = recur})
-                        data.dates[curr_date.year .. curr_date.month .. curr_date.day] = true
+                        data.dates[curr] = true
                         curr = freq_table[freq].next(curr, interval)
                      end
                   else
@@ -135,7 +136,7 @@ function parse_agenda()
                                                 tags = task_tags,
                                                 date = task_date,
                                                 recur = recur})
-                     data.dates[y .. tonumber(m) .. tonumber(d)] = true
+                     data.dates[task_date] = true
                   end
                end
             end
@@ -179,7 +180,7 @@ local function create_calendar()
          result = result ..
             string.format('<span weight="bold" foreground = "%s">%s</span>',
                           today_color, day_str)
-      elseif data.dates[cal_year .. cal_month .. day] then
+      elseif data.dates[os.time{day = day, month = cal_month, year = cal_year}] then
          result = result ..
             string.format('<span weight="bold" foreground = "%s">%s</span>',
                           event_color, day_str)
@@ -213,7 +214,7 @@ local function create_todo()
          result = result ..
             string.format('<span weight = "bold" foreground = "%s">%s</span>\n',
                           event_color,
-                          pop_spaces("", task.date, maxlen))
+                          pop_spaces("", os.date(date_format, task.date), maxlen))
       end
       tname = task.name
       limit = maxlen - string.len(task.tags) - 3
