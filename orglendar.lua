@@ -4,33 +4,21 @@
 -- Version 1.1-awesome-git
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 
-local pairs = pairs
-local ipairs = ipairs
-local io = io
-local os = os
-local tonumber = tonumber
-local string = string
-local table = table
-local math = math
 local awful = require("awful")
 local util = awful.util
 local theme = require("beautiful")
 local naughty = require("naughty")
-local print = print
-local mouse = mouse
 
-module("orglendar")
-
-files = {}
-char_width = nil
-text_color = theme.fg_normal or "#FFFFFF"
-today_color = theme.fg_focus or "#00FF00"
-event_color = theme.fg_urgent or "#FF0000"
-font = theme.font or 'monospace 8'
-parse_on_show = true
-calendar_width = 21
-limit_todo_length = nil
-date_format = "%d-%m-%Y"
+local orglendar = { files = {},
+                    char_width = nil,
+                    text_color = theme.fg_normal or "#FFFFFF",
+                    today_color = theme.fg_focus or "#00FF00",
+                    event_color = theme.fg_urgent or "#FF0000",
+                    font = theme.font or 'monospace 8',
+                    parse_on_show = true,
+                    calendar_width = 21,
+                    limit_todo_length = nil,
+                    date_format = "%d-%m-%Y" }
 
 local freq_table =
 { d = { lapse = 86400,
@@ -51,7 +39,15 @@ local freq_table =
                   local date = os.date("*t", t)
                   return os.time{ day = date.day, month = date.month,
                                   year = date.year + i }
-               end } }
+               end },
+  m = { lapse = 2592000,
+        occur = 1,
+        next = function(t, i)
+                  local date = os.date("*t", t)
+                  return os.time{ day = date.day, month = date.month + i,
+                                  year = date.year }
+               end }
+ }
 
 local calendar = nil
 local todo = nil
@@ -67,12 +63,17 @@ local function pop_spaces(s1, s2, maxsize)
    return s1 .. sps .. s2
 end
 
-function parse_agenda()
+local function strip_time(time_obj)
+   local tbl = os.date("*t", time_obj)
+   return os.time{day = tbl.day, month = tbl.month, year = tbl.year}
+end
+
+function orglendar.parse_agenda()
    local today = os.time()
    data = { tasks = {}, dates = {}, maxlen = 20 }
 
    local task_name
-   for _, file in pairs(files) do
+   for _, file in pairs(orglendar.files) do
       local fd = io.open(file, "r")
       if not fd then
          print("W: orglendar: cannot find " .. file)
@@ -83,10 +84,21 @@ function parse_agenda()
             local deadline  = string.find(line, "DEADLINE:")
 
             if (scheduled and not closed) or (deadline and not closed) then
-               local _, _, y, m, d, recur = string.find(line, "(%d%d%d%d)%-(%d%d)%-(%d%d)[^%+]*%+?([^>]*)>")
+               local _, _, y, m, d, h, min, recur = string.find(line, "(%d%d%d%d)%-(%d%d)%-(%d%d) %w%w%w ?(%d*)%:?(%d*)[^%+]*%+?([^>]*)>")
+               if h ~= "" then
+                  h = tonumber(h)
+               else
+                  h = 23
+               end
+
+               if min ~= "" then
+                  min = tonumber(min)
+               else
+                  min = 59
+               end
 
                local task_date = os.time{day = tonumber(d), month = tonumber(m),
-                                         year = tonumber(y)}
+                                         year = tonumber(y), hour = h, min = min}
 
                if d and task_name and (task_date >= today or recur ~= "") then
                   local find_begin, task_start = string.find(task_name, "[A-Z]+%s+")
@@ -109,7 +121,7 @@ function parse_agenda()
                      local _, _, interval, freq = string.find(recur, "(%d)(%w)")
                      local now = os.time()
                      local curr
-                     local event_time = os.time({day = tonumber(d), month = tonumber(m), year = y})
+                     local event_time = task_date -- os.time({day = tonumber(d), month = tonumber(m), year = y})
                      if freq == "d" then
                         curr = math.max(now, event_time)
                      elseif freq == "w" then
@@ -128,7 +140,7 @@ function parse_agenda()
                                                    tags = task_tags,
                                                    date = curr,
                                                    recur = recur})
-                        data.dates[curr] = true
+                        data.dates[strip_time(curr)] = true
                         curr = freq_table[freq].next(curr, interval)
                      end
                   else
@@ -136,7 +148,7 @@ function parse_agenda()
                                                 tags = task_tags,
                                                 date = task_date,
                                                 recur = recur})
-                     data.dates[task_date] = true
+                     data.dates[strip_time(task_date)] = true
                   end
                end
             end
@@ -179,11 +191,11 @@ local function create_calendar()
          this_month = true
          result = result ..
             string.format('<span weight="bold" foreground = "%s">%s</span>',
-                          today_color, day_str)
+                          orglendar.today_color, day_str)
       elseif data.dates[os.time{day = day, month = cal_month, year = cal_year}] then
          result = result ..
             string.format('<span weight="bold" foreground = "%s">%s</span>',
-                          event_color, day_str)
+                          orglendar.event_color, day_str)
       else
          result = result .. day_str
       end
@@ -199,7 +211,7 @@ local function create_calendar()
       header = os.date("%B %Y", first_day)
    end
    return header, string.format('<span font="%s" foreground="%s">%s</span>',
-                                font, text_color, result)
+                                orglendar.font, orglendar.text_color, result)
 end
 
 local function create_todo()
@@ -210,10 +222,10 @@ local function create_todo()
    end
    local prev_date, limit, tname
    for i, task in ipairs(data.tasks) do
-      if prev_date ~= task.date then
+      if strip_time(prev_date) ~= strip_time(task.date) then
          result = result ..
             string.format('<span weight = "bold" foreground = "%s">%s</span>\n',
-                          event_color,
+                          orglendar.event_color,
                           pop_spaces("", os.date(date_format, task.date), maxlen))
       end
       tname = task.name
@@ -232,25 +244,25 @@ local function create_todo()
       result = " "
    end
    return string.format('<span font="%s" foreground="%s">%s</span>',
-                        font, text_color, result), data.maxlen + 3
+                        orglendar.font, orglendar.text_color, result), data.maxlen + 3
 end
 
-function get_calendar_and_todo_text(_offset)
+function orglendar.get_calendar_and_todo_text(_offset)
    if not data or parse_on_show then
-      parse_agenda()
+      orglendar.parse_agenda()
    end
 
    offset = _offset
    local header, cal = create_calendar()
    return string.format('<span font="%s" foreground="%s">%s</span>\n%s',
-                        font, text_color, header, cal), create_todo()
+                        orglendar.font, orglendar.text_color, header, cal), create_todo()
 end
 
 local function calculate_char_width()
    return theme.get_font_height(font) * 0.555
 end
 
-function hide()
+function orglendar.hide()
    if calendar ~= nil then
       naughty.destroy(calendar)
       naughty.destroy(todo)
@@ -259,7 +271,7 @@ function hide()
    end
 end
 
-function show(inc_offset)
+function orglendar.show(inc_offset)
    inc_offset = inc_offset or 0
 
    if not data or parse_on_show then
@@ -286,8 +298,8 @@ function show(inc_offset)
                         })
 end
 
-function register(widget)
-   widget:connect_signal("mouse::enter", function() show(0) end)
+function orglendar.register(widget)
+   widget:connect_signal("mouse::enter", function() orglendar.show(0) end)
    widget:connect_signal("mouse::leave", hide)
    widget:buttons(util.table.join( awful.button({ }, 3, function()
                                                            parse_agenda()
@@ -299,3 +311,5 @@ function register(widget)
                                                            show(1)
                                                         end)))
 end
+
+return orglendar
