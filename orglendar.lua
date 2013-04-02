@@ -167,7 +167,7 @@ local function create_todo()
       end
       result = result .. pop_spaces(tname, task.tags, maxlen)
 
-      if i ~= table.getn(data.tasks) then
+      if i ~= #data.tasks then -- is obsolete: table.getn(data.tasks) then
          result = result .. "\n"
       end
       prev_date = task.date
