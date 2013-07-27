@@ -16,6 +16,7 @@ local util = awful.util
 local theme = require("beautiful")
 local naughty = require("naughty")
 local print = print
+local mouse = mouse
 
 module("orglendar")
 
@@ -220,11 +221,13 @@ function show(inc_offset)
                                text = cal_text,
                                timeout = 0, hover_timeout = 0.5,
                                width = calendar_width * char_width,
+                               screen = mouse.screen,
                             })
    todo = naughty.notify({ title = "TO-DO list",
                            text = create_todo(),
                            timeout = 0, hover_timeout = 0.5,
                            width = (data.maxlen + 3) * char_width,
+                           screen = mouse.screen,
                         })
 end
 
