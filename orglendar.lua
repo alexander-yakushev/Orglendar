@@ -6,6 +6,7 @@
 
 local awful = require("awful")
 local util = awful.util
+local format = string.format
 local theme = require("beautiful")
 local naughty = require("naughty")
 
@@ -16,38 +17,37 @@ local orglendar = { files = {},
                     event_color = theme.fg_urgent or "#FF0000",
                     font = theme.font or 'monospace 8',
                     parse_on_show = true,
-                    calendar_width = 21,
                     limit_todo_length = nil,
                     date_format = "%d-%m-%Y" }
 
 local freq_table =
-{ d = { lapse = 86400,
-        occur = 5,
-        next = function(t, i)
-                  local date = os.date("*t", t)
-                  return os.time{ day = date.day + i, month = date.month,
-                                  year = date.year }
-               end },
-  w = { lapse = 604800,
-        occur = 3,
-        next = function(t, i)
-                  return t + 604800 * i
-               end },
-  y = { lapse = 220752000,
-        occur = 1,
-        next = function(t, i)
-                  local date = os.date("*t", t)
-                  return os.time{ day = date.day, month = date.month,
-                                  year = date.year + i }
-               end },
-  m = { lapse = 2592000,
-        occur = 1,
-        next = function(t, i)
-                  local date = os.date("*t", t)
-                  return os.time{ day = date.day, month = date.month + i,
-                                  year = date.year }
-               end }
- }
+   { d = { lapse = 86400,
+           occur = 5,
+           next = function(t, i)
+              local date = os.date("*t", t)
+              return os.time{ day = date.day + i, month = date.month,
+                              year = date.year }
+           end },
+        w = { lapse = 604800,
+              occur = 3,
+              next = function(t, i)
+                 return t + 604800 * i
+              end },
+        y = { lapse = 220752000,
+              occur = 1,
+              next = function(t, i)
+                 local date = os.date("*t", t)
+                 return os.time{ day = date.day, month = date.month,
+                                 year = date.year + i }
+              end },
+        m = { lapse = 2592000,
+              occur = 1,
+              next = function(t, i)
+                 local date = os.date("*t", t)
+                 return os.time{ day = date.day, month = date.month + i,
+                                 year = date.year }
+              end }
+   }
 
 local calendar = nil
 local todo = nil
@@ -177,8 +177,8 @@ local function create_calendar()
                                             month = cal_month + 1}) - 86400)
    local first_day = os.time({ day = 1, month = cal_month, year = cal_year})
    local first_day_in_week =
-      os.date("%w", first_day)
-   local result = "Su Mo Tu We Th Fr Sa\n"
+      (os.date("%w", first_day) + 6) % 7
+   local result = "Mo Tu We Th Fr Sa Su\n"
    for i = 1, first_day_in_week do
       result = result .. "   "
    end
@@ -190,12 +190,12 @@ local function create_calendar()
       if cal_month == now.month and cal_year == now.year and day == now.day then
          this_month = true
          result = result ..
-            string.format('<span weight="bold" foreground = "%s">%s</span>',
-                          orglendar.today_color, day_str)
+            format('<span weight="bold" foreground = "%s">%s</span>',
+                   orglendar.today_color, day_str)
       elseif data.dates[os.time{day = day, month = cal_month, year = cal_year}] then
          result = result ..
-            string.format('<span weight="bold" foreground = "%s">%s</span>',
-                          orglendar.event_color, day_str)
+            format('<span weight="bold" foreground = "%s">%s</span>',
+                   orglendar.event_color, day_str)
       else
          result = result .. day_str
       end
@@ -210,8 +210,8 @@ local function create_calendar()
    else
       header = os.date("%B %Y", first_day)
    end
-   return header, string.format('<span font="%s" foreground="%s">%s</span>',
-                                orglendar.font, orglendar.text_color, result)
+   return header, format('<span font="%s" foreground="%s">%s</span>',
+                         orglendar.font, orglendar.text_color, result)
 end
 
 local function create_todo()
@@ -224,9 +224,9 @@ local function create_todo()
    for i, task in ipairs(data.tasks) do
       if strip_time(prev_date) ~= strip_time(task.date) then
          result = result ..
-            string.format('<span weight = "bold" foreground = "%s">%s</span>\n',
-                          orglendar.event_color,
-                          pop_spaces("", os.date(date_format, task.date), maxlen))
+            format('<span weight = "bold" foreground = "%s">%s</span>\n',
+                   orglendar.event_color,
+                   pop_spaces("", os.date(orglendar.date_format, task.date), maxlen))
       end
       tname = task.name
       limit = maxlen - string.len(task.tags) - 3
@@ -235,7 +235,7 @@ local function create_todo()
       end
       result = result .. pop_spaces(tname, task.tags, maxlen)
 
-      if i ~= #data.tasks then -- is obsolete: table.getn(data.tasks) then
+      if i ~= #data.tasks then
          result = result .. "\n"
       end
       prev_date = task.date
@@ -243,8 +243,8 @@ local function create_todo()
    if result == "" then
       result = " "
    end
-   return string.format('<span font="%s" foreground="%s">%s</span>',
-                        orglendar.font, orglendar.text_color, result), data.maxlen + 3
+   return format('<span font="%s" foreground="%s">%s</span>',
+                 orglendar.font, orglendar.text_color, result), data.maxlen + 3
 end
 
 function orglendar.get_calendar_and_todo_text(_offset)
@@ -254,8 +254,8 @@ function orglendar.get_calendar_and_todo_text(_offset)
 
    offset = _offset
    local header, cal = create_calendar()
-   return string.format('<span font="%s" foreground="%s">%s</span>\n%s',
-                        orglendar.font, orglendar.text_color, header, cal), create_todo()
+   return format('<span font="%s" foreground="%s">%s</span>\n%s',
+                 orglendar.font, orglendar.text_color, header, cal), create_todo()
 end
 
 local function calculate_char_width()
@@ -275,11 +275,11 @@ function orglendar.show(inc_offset)
    inc_offset = inc_offset or 0
 
    if not data or parse_on_show then
-      parse_agenda()
+      orglendar.parse_agenda()
    end
 
    local save_offset = offset
-   hide()
+   orglendar.hide()
    offset = save_offset + inc_offset
 
    local char_width = char_width or calculate_char_width()
@@ -287,28 +287,26 @@ function orglendar.show(inc_offset)
    calendar = naughty.notify({ title = header,
                                text = cal_text,
                                timeout = 0, hover_timeout = 0.5,
-                               width = calendar_width * char_width,
                                screen = mouse.screen,
                             })
    todo = naughty.notify({ title = "TO-DO list",
                            text = create_todo(),
                            timeout = 0, hover_timeout = 0.5,
-                           width = (data.maxlen + 3) * char_width,
                            screen = mouse.screen,
                         })
 end
 
 function orglendar.register(widget)
    widget:connect_signal("mouse::enter", function() orglendar.show(0) end)
-   widget:connect_signal("mouse::leave", hide)
+   widget:connect_signal("mouse::leave", orglendar.hide)
    widget:buttons(util.table.join( awful.button({ }, 3, function()
-                                                           parse_agenda()
+                                                   orglendar.parse_agenda()
                                                         end),
                                    awful.button({ }, 4, function()
-                                                           show(-1)
+                                                   orglendar.show(-1)
                                                         end),
                                    awful.button({ }, 5, function()
-                                                           show(1)
+                                                   orglendar.show(1)
                                                         end)))
 end
 
