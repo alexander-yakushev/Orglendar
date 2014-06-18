@@ -173,8 +173,8 @@ local function create_calendar()
       cal_year = cal_year - 1
    end
 
-   local last_day = os.date("%d", os.time({ day = 1, year = cal_year,
-                                            month = cal_month + 1}) - 86400)
+   local last_day = tonumber(os.date("%d", os.time({ day = 1, year = cal_year,
+                                                     month = cal_month + 1}) - 86400))
    local first_day = os.time({ day = 1, month = cal_month, year = cal_year})
    local first_day_in_week =
       (os.date("%w", first_day) + 6) % 7
